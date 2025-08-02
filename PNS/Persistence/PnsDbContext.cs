@@ -1,15 +1,15 @@
 ﻿// File Path: Persistence/PnsDbContext.cs
-// Namespace: Persistence
-using Domain.Common; // ለ BaseDomainEntity
-using Domain.Models; // ለ ClientApplication, EmailRecipient, Notification, NotificationRecipient
+using Domain.Common;
+using Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using Application.Interfaces; // IApplicationDbContext ን ለመጠቀም ይህንን ጨምር!
 
 namespace Persistence
 {
-    public class PnsDbContext : DbContext
+    public class PnsDbContext : DbContext, IApplicationDbContext
     {
         public PnsDbContext(DbContextOptions<PnsDbContext> options)
             : base(options)
@@ -19,29 +19,24 @@ namespace Persistence
         public DbSet<ClientApplication> ClientApplications { get; set; }
         public DbSet<EmailRecipient> EmailRecipients { get; set; }
         public DbSet<Notification> Notifications { get; set; }
-        public DbSet<NotificationRecipient> NotificationRecipients { get; set; } // <-- ይህንን መስመር ጨምር
+        public DbSet<NotificationRecipient> NotificationRecipients { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(PnsDbContext).Assembly);
 
-            // ለ NotificationRecipient Composite Primary Key ፍቺ
             modelBuilder.Entity<NotificationRecipient>(entity =>
             {
                 entity.HasKey(nr => new { nr.NotificationId, nr.EmailRecipientId });
 
-                // Notification -> NotificationRecipient ግንኙነት
                 entity.HasOne(nr => nr.Notification)
                     .WithMany(n => n.NotificationRecipients)
                     .HasForeignKey(nr => nr.NotificationId)
-                    // **አስፈላጊ ማስተካከያ: ወደ Restrict ቀይር**
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // EmailRecipient -> NotificationRecipient ግንኙነት
                 entity.HasOne(nr => nr.EmailRecipient)
                     .WithMany(er => er.NotificationRecipients)
-                    .HasForeignKey(nr => nr.EmailRecipientId)
-                    // **አስፈላጊ ማስተካከያ: ወደ Restrict ቀይር**
+                    .HasForeignKey(nr => nr.EmailRecipientId) // <<<< እዚህ ጋር ተስተካክሏል! >>>>
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

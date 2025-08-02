@@ -1,11 +1,13 @@
-﻿using MediatR;
+﻿// Application/CQRS/EmailRecipients/Queries/GetAllEmailRecipientsQuery.cs
+using MediatR;
+using System; // For Guid
 using System.Collections.Generic;
-using Application.Dto.EmailRecipients;
+using Application.Dto.EmailRecipients; // የ EmailRecipientDto class ካለበት namespace
 
 namespace Application.CQRS.EmailRecipients.Queries
 {
     public class GetAllEmailRecipientsQuery : IRequest<List<EmailRecipientDto>>
     {
-        // No specific parameters for getting all
+        public Guid ClientApplicationId { get; set; } // <<<< ይህ property እዚህ መኖሩን አረጋግጥ!!! >>>>
     }
 }

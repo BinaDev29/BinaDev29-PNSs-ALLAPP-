@@ -9,8 +9,9 @@ using System.Collections.Generic;
 using Application.Profiles;
 using AutoMapper;
 using System.Reflection;
-using MediatR; // <-- ይህንን ጨምር!
-using Application.CQRS.Notifications.Handlers; // <-- ይህንን ጨምር!
+using MediatR;
+using Application.CQRS.Notifications.Handlers;
+using Application.Interfaces; // <<<< ይህንን ጨምር! >>>>
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,13 @@ builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddPersistenceServices(builder.Configuration);
+
+// ********************************************************************************
+// PnsDbContext ን መመዝገብ
+// ********************************************************************************
+// PnsDbContext ሲጠየቅ IApplicationDbContext ን እንዲሰጥ መመዝገብ <<<< ይህንን ክፍል ጨምር >>>>
+builder.Services.AddScoped<IApplicationDbContext, PnsDbContext>();
+// ********************************************************************************
 
 builder.Services.AddControllers();
 
