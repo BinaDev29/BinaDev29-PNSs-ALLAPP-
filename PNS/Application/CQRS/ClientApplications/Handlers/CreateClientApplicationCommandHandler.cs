@@ -18,9 +18,14 @@ namespace Application.CQRS.ClientApplications.Handlers
         {
             var clientApplication = mapper.Map<ClientApplication>(request.ClientApplicationDto);
             clientApplication.ApiKey = Guid.NewGuid().ToString("N"); // Generate a new unique API key
+
+            // VapidPublicKey እና VapidPrivateKeyን እዚህ ጋር ወይም በሌላ service መሙላት ያስፈልጋል
+            // ምናልባትም በConfiguration ወይም በሌላ generator
+            clientApplication.VapidPublicKey = "YOUR_VAPID_PUBLIC_KEY"; // Placeholder
+            clientApplication.VapidPrivateKey = "YOUR_VAPID_PRIVATE_KEY"; // Placeholder
+
             clientApplication = await clientApplicationRepository.Add(clientApplication);
             return mapper.Map<ClientApplicationDto>(clientApplication);
-            
         }
     }
 }

@@ -22,7 +22,7 @@ namespace Application.CQRS.ClientApplications.Handlers
                 throw new NotFoundException(nameof(ClientApplication), request.ClientApplicationDto.Id);
             }
 
-            mapper.Map(request.ClientApplicationDto, clientApplicationToUpdate);
+            mapper.Map(request.ClientApplicationDto, clientApplicationToUpdate); // LogoUrl ን እዚህ ጋር map ያደርጋል
             await clientApplicationRepository.Update(clientApplicationToUpdate);
             return Unit.Value;
         }

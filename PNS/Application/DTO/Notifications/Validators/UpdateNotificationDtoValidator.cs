@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿// File Path: Application/Notifications/Validators/UpdateNotificationDtoValidator.cs
+using FluentValidation;
 using Application.Dto.Notifications;
 using System;
 using Domain.Enums; // Ensure this is present for NotificationStatus
@@ -27,16 +28,19 @@ namespace Application.Notifications.Validators
                 .NotEmpty().WithMessage("{PropertyName} is required.")
                 .MaximumLength(50).WithMessage("{PropertyName} must not exceed 50 characters.");
 
+            // *** ይህ የStatus validation የተስተካከለው ነው ***
             RuleFor(p => p.Status)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .MaximumLength(50).WithMessage("{PropertyName} must not exceed 50 characters.")
-                .Must(BeAValidNotificationStatus).WithMessage("'{PropertyName}' is not a valid notification status.");
+                .NotNull().WithMessage("{PropertyName} is required when updating.") // Nullable ስለሆነ NotNull እንጂ NotEmpty አይባልም
+                .IsInEnum().WithMessage("'{PropertyName}' is not a valid notification status.")
+                .When(x => x.Status.HasValue); // Status value ሲኖረው ብቻ ይህንን ህግ ተግብር (አማራጭ ነው)
         }
 
-        private bool BeAValidNotificationStatus(string status)
-        {
-            // Use Enum.TryParse to correctly validate if the string is a valid enum member.
-            return Enum.TryParse(status, true, out NotificationStatus result);
-        }
+        // BeAValidNotificationStatus የሚለው private method አያስፈልግም ምክንያቱም IsInEnum() የሚለውን ተጠቅመናል
+        // ነገር ግን ለሌላ ውስብስብ validation መጠቀም ከፈለክ እንደዚህ ማስተካከል ትችላለህ
+        // private bool BeAValidNotificationStatus(NotificationStatus? status)
+        // {
+        //     // status.HasValue ን መፈተሽ አስፈላጊ ነው ምክንያቱም nullable ነው
+        //     return status.HasValue; // IsInEnum() ይህንን በራሱ ይፈትሻል
+        // }
     }
 }

@@ -1,6 +1,4 @@
 ﻿// File Path: Domain/Enums/NotificationStatus.cs
-// Namespace: Domain.Enums
-
 namespace Domain.Enums
 {
     public enum NotificationStatus
@@ -8,7 +6,7 @@ namespace Domain.Enums
         Pending,
         Sent,
         Failed,
-        Read,   // ይህን ጨምር
-        Unread  // ይህን ጨምር
+        Processing, // <-- ይህንን ጨምር
+        PartiallySent // <-- ይህንን ጨምር
     }
 }

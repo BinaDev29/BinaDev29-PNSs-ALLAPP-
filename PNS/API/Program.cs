@@ -6,33 +6,32 @@ using API.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using System.Collections.Generic;
-using Application.Profiles; // ይህንን ጨምረሃል!
-
-// *** ለ AutoMapper አዲስ using directive ***
+using Application.Profiles;
 using AutoMapper;
-using System.Reflection; // ለ Assembly.GetExecutingAssembly()
+using System.Reflection;
+using MediatR; // <-- ይህንን ጨምር!
+using Application.CQRS.Notifications.Handlers; // <-- ይህንን ጨምር!
 
-// *** እዚህ ጋር ነው ማስተካከያው - ይህ መስመር አንድ ጊዜ ብቻ ነው መሆን ያለበት! ***
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Configure Services ---
 
-// AutoMapper profiles በአብዛኛው Application project ውስጥ ስለሚገኙ፣ የ Application assembly ን መመዝገብ አለብህ።
-// MappingProfile አሁን ስለሚታወቅ typeof(MappingProfile).Assembly የሚለውን እንጠቀማለን።
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-
-// *** የተደጋገሙትን AddAutoMapper() calls አስወግድ ***
-// ሌሎች AutoMapper profile ዎችህ የሚገኙበትን assembly(ies) መጨመር ሊያስፈልግህ ይችላል።
-// ለምሳሌ፣ Application layer ውስጥ profile ዎችህ ካሉ፣ እንዲህ ማከል ትችላለህ:
-// builder.Services.AddAutoMapper(typeof(Application.MappingProfile).Assembly); // ይህ ከላይ ባለው ተሸፍኗል
-// ወይም የሁሉም Application assemblies ውስጥ ያሉ profile ዎችን ለመመዝገብ:
-// builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies()); // ይህ ብዙ ጊዜ አያስፈልግም እና ቀርፋፋ ሊሆን ይችላል
 
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddPersistenceServices(builder.Configuration);
 
 builder.Services.AddControllers();
+
+// ********************************************************************************
+// MediatR Configuration - ይህንን ክፍል አክዬበታለሁ!
+// ********************************************************************************
+// MediatR ን ይመዘግባል እና handlers ያሉበትን assembly እንዲያገኝ ያግዘዋል።
+// CreateNotificationCommandHandler ያለው በ "Application" project ውስጥ ስለሆነ፣
+// የዚያን project's assembly እንሰጠዋለን።
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateNotificationCommandHandler).Assembly));
+// ********************************************************************************
 
 // Configure API Versioning
 builder.Services.AddApiVersioning(config =>
@@ -77,8 +76,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         corsBuilder => corsBuilder.AllowAnyOrigin()
-                                .AllowAnyMethod()
-                                .AllowAnyHeader());
+                                  .AllowAnyMethod()
+                                  .AllowAnyHeader());
 });
 
 // --- Build the Application ---

@@ -1,4 +1,5 @@
-﻿using Application.Contracts.IRepository;
+﻿// File Path: API/Services/NotificationBackgroundService.cs
+using Application.Contracts.IRepository;
 using Application.Contracts.Services;
 using Application.Dto.EmailSender;
 using Domain.Common;
@@ -8,94 +9,145 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
+using System.Linq; // for .Count() if you prefer it over .Any()
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace API.Services
 {
-    // Primary constructor ተጠቅመናል
-    public class NotificationBackgroundService(IServiceProvider serviceProvider, ILogger<NotificationBackgroundService> logger, IEmailService emailSender) : BackgroundService
+    public class NotificationBackgroundService(IServiceProvider serviceProvider, ILogger<NotificationBackgroundService> logger) : BackgroundService
     {
-        private readonly IServiceProvider _serviceProvider = serviceProvider;
-        private readonly ILogger<NotificationBackgroundService> _logger = logger;
-        private readonly IEmailService _emailSender = emailSender;
-
+        // የ ExecuteAsync method signature ትክክል መሆኑን አረጋግጥ
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Notification Background Service is starting (Email Only).");
+            logger.LogInformation("Notification Background Service is starting (Email Only).");
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    await DoWork();
+                    await DoWork(stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Service is stopping gracefully
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "An error occurred in the background service.");
+                    logger.LogError(ex, "An error occurred in the background service.");
                 }
+                // Delay for 30 seconds before the next iteration
                 await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
             }
-            _logger.LogInformation("Notification Background Service is stopping (Email Only).");
+            logger.LogInformation("Notification Background Service is stopping (Email Only).");
         }
 
-        private async Task DoWork()
+        private async Task DoWork(CancellationToken stoppingToken)
         {
-            using var scope = _serviceProvider.CreateScope();
+            using var scope = serviceProvider.CreateScope();
             var notificationRepository = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
+            var emailRecipientRepository = scope.ServiceProvider.GetRequiredService<IGenericRepository<EmailRecipient>>();
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
-            // ያልተላኩ ኖቲፊኬሽኖችን እናገኛለን።
-            // እዚህ ላይ EmailRecipient ን ጭምር Load ማድረግ ሊያስፈልግ ይችላል
-            // ለምሳሌ: await notificationRepository.GetUnsentNotificationsAsync(includeEmailRecipient: true);
-            // ወይም በ Repositoryህ ውስጥ WithEmailRecipient() የመሰለ method ካለህ ተጠቀም።
-            // ለጊዜው በነባሩ GetUnsentNotificationsAsync እንቀጥላለን
-            // ነገር ግን EmailRecipient ን በትክክል ከ Load ካላደረገ null reference ሊሰጥ ይችላል።
-            var unsentNotifications = await notificationRepository.GetUnsentNotificationsAsync();
+            // 'Possible null reference return' warning ሊሰጥ ይችላል ምክንያቱም GetUnsentNotificationsAsync() ባዶ ሊመልስ ይችላል።
+            // ነገር ግን .ToList() ን ከተጠቀምክ ችግር የለውም ወይም null check ማድረግ ትችላለህ።
+            var unsentNotifications = (await notificationRepository.GetUnsentNotificationsAsync()).ToList();
 
             foreach (var notification in unsentNotifications)
             {
-                bool isEmailSent = false;
+                stoppingToken.ThrowIfCancellationRequested();
 
-                // የኢሜይል አድራሻውን ከ EmailRecipient navigation property ለማግኘት እንሞክራለን።
-                // EmailRecipient እና EmailAddress null አለመሆናቸውን እናረጋግጣለን።
-                if (notification.EmailRecipient != null && !string.IsNullOrEmpty(notification.EmailRecipient.EmailAddress))
+                // notification.Status = NotificationStatus.Processing; // ከ loop ውጪ Update መደረጉ የተሻለ ነው
+                // await notificationRepository.Update(notification); // ይህንን መስመር ከዚህ ላይ አስወግድ
+
+                // Warning: Prefer comparing 'Count' to 0 rather than using 'Any()'
+                if (notification.NotificationRecipients == null || notification.NotificationRecipients.Count == 0) // Changed .Any() to .Count == 0
                 {
-                    string toEmail = notification.EmailRecipient.EmailAddress;
-                    string subject = notification.Title ?? "New Notification";
-                    string body = notification.Message ?? "You have a new message."; // <<<< Body በሚለው ፈንታ Message እንጠቀማለን
+                    logger.LogWarning("Notification {NotificationId} has no associated recipients. Skipping email sending for this notification.", notification.Id);
+                    notification.Status = NotificationStatus.Failed;
+                    notification.SentDate = DateTime.UtcNow;
+                    await notificationRepository.Update(notification);
+                    continue;
+                }
 
-                    _logger.LogInformation("Attempting to send email to {ToEmail}", toEmail);
-                    var emailRequest = new EmailSenderRequestDto
-                    {
-                        To = new List<string> { toEmail },
-                        Subject = subject,
-                        Body = body,
-                        IsHtml = true // እንደ አስፈላጊነቱ አድርገው
-                    };
-                    isEmailSent = await _emailSender.SendEmailAsync(emailRequest);
+                int successfulSends = 0;
+                int failedSends = 0;
 
-                    if (isEmailSent)
+                foreach (var notificationRecipient in notification.NotificationRecipients)
+                {
+                    stoppingToken.ThrowIfCancellationRequested();
+
+                    // Possible null reference return for recipient
+                    var recipient = await emailRecipientRepository.GetById(notificationRecipient.EmailRecipientId);
+
+                    if (recipient == null || string.IsNullOrWhiteSpace(recipient.EmailAddress))
                     {
-                        _logger.LogInformation("Email successfully sent to {ToEmail}", toEmail);
+                        logger.LogWarning("Email Recipient with ID {RecipientId} for Notification {NotificationId} not found or email address is empty. Skipping.",
+                            notificationRecipient.EmailRecipientId, notification.Id);
+
+                        notificationRecipient.Status = NotificationStatus.Failed;
+                        notificationRecipient.SentDate = DateTime.UtcNow;
+                        notificationRecipient.FailureReason = "Recipient not found or email address missing.";
+                        failedSends++;
+                        continue;
                     }
-                    else
+
+                    try
                     {
-                        _logger.LogWarning("Failed to send email to {ToEmail}", toEmail);
+                        string subject = notification.Title ?? "New Notification";
+                        string body = notification.Message ?? "You have a new message.";
+
+                        // Warning: 'new' expression can be simplified (if C# 9.0+ and context allows)
+                        // Warning: Collection initialization can be simplified (already simplified here)
+                        var emailRequest = new EmailSenderRequestDto // Can be simplified to 'new()'
+                        {
+                            To = new List<string> { recipient.EmailAddress },
+                            Subject = subject,
+                            Body = body,
+                            IsHtml = true
+                        };
+
+                        logger.LogInformation("Attempting to send email for Notification {NotificationId} to {RecipientEmail}.", notification.Id, recipient.EmailAddress);
+                        await emailService.SendEmailAsync(emailRequest);
+                        logger.LogInformation("Email notification {NotificationId} successfully sent to {RecipientEmail}.", notification.Id, recipient.EmailAddress);
+
+                        notificationRecipient.Status = NotificationStatus.Sent;
+                        notificationRecipient.SentDate = DateTime.UtcNow;
+                        notificationRecipient.FailureReason = null; // Set to null on success
+                        successfulSends++;
                     }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to send email for notification {NotificationId} to {RecipientEmail}. Error: {ErrorMessage}",
+                            notification.Id, recipient.EmailAddress, ex.Message);
+
+                        notificationRecipient.Status = NotificationStatus.Failed;
+                        notificationRecipient.SentDate = DateTime.UtcNow;
+                        notificationRecipient.FailureReason = ex.Message;
+                        failedSends++;
+                    }
+                }
+
+                // Update the main Notification status AND save all recipient changes HERE
+                if (successfulSends > 0 && failedSends == 0)
+                {
+                    notification.Status = NotificationStatus.Sent;
+                }
+                else if (successfulSends > 0 && failedSends > 0)
+                {
+                    notification.Status = NotificationStatus.PartiallySent;
                 }
                 else
                 {
-                    // EmailRecipient ወይም EmailAddress ካልተገኘ Log እናደርጋለን
-                    _logger.LogWarning("Notification {NotificationId} has no valid email recipient to send email.", notification.Id);
-                    // እዚህ ላይ የኖቲፊኬሽኑን ሁኔታ ወደ 'Failed' ማቀናበርም ይቻላል
-                    // notification.Status = NotificationStatus.Failed;
-                    // await notificationRepository.Update(notification);
+                    notification.Status = NotificationStatus.Failed;
                 }
 
-                if (isEmailSent)
-                {
-                    notification.Status = NotificationStatus.Sent;
-                    await notificationRepository.Update(notification);
-                }
+                notification.SentDate = DateTime.UtcNow;
+                await notificationRepository.Update(notification); // Update the main notification and its child entities (recipients)
+
+                logger.LogInformation("Notification {NotificationId} processing completed. Final status: {Status} (Successful: {SuccessfulSends}, Failed: {FailedSends}).",
+                    notification.Id, notification.Status, successfulSends, failedSends);
             }
         }
     }

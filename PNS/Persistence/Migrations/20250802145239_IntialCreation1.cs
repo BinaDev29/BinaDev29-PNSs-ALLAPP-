@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialDatabaseSetup : Migration
+    public partial class IntialCreation1 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -22,6 +22,7 @@ namespace Persistence.Migrations
                     ApiKey = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     VapidPublicKey = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     VapidPrivateKey = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    LogoUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     LastModifiedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -65,14 +66,14 @@ namespace Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    ClientApplicationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    SentDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    IsRead = table.Column<bool>(type: "bit", nullable: false),
-                    EmailRecipientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    NotificationType = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ClientApplicationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Type = table.Column<int>(type: "int", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
+                    ScheduledTime = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    SentDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FailureReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     LastModifiedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -87,11 +88,34 @@ namespace Persistence.Migrations
                         principalTable: "ClientApplications",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "NotificationRecipients",
+                columns: table => new
+                {
+                    NotificationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmailRecipientId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    SentDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FailureReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_NotificationRecipients", x => new { x.NotificationId, x.EmailRecipientId });
                     table.ForeignKey(
-                        name: "FK_Notifications_EmailRecipients_EmailRecipientId",
+                        name: "FK_NotificationRecipients_EmailRecipients_EmailRecipientId",
                         column: x => x.EmailRecipientId,
                         principalTable: "EmailRecipients",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_NotificationRecipients_Notifications_NotificationId",
+                        column: x => x.NotificationId,
+                        principalTable: "Notifications",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
@@ -100,24 +124,27 @@ namespace Persistence.Migrations
                 column: "ClientApplicationId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_NotificationRecipients_EmailRecipientId",
+                table: "NotificationRecipients",
+                column: "EmailRecipientId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Notifications_ClientApplicationId",
                 table: "Notifications",
                 column: "ClientApplicationId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Notifications_EmailRecipientId",
-                table: "Notifications",
-                column: "EmailRecipientId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Notifications");
+                name: "NotificationRecipients");
 
             migrationBuilder.DropTable(
                 name: "EmailRecipients");
+
+            migrationBuilder.DropTable(
+                name: "Notifications");
 
             migrationBuilder.DropTable(
                 name: "ClientApplications");

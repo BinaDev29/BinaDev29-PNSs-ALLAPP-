@@ -2,7 +2,7 @@
 // Namespace: Domain.Models
 using System;
 using System.Collections.Generic;
-using Domain.Common; // 'BaseDomainEntity' እዚህ ስላለ
+using Domain.Common;
 
 namespace Domain.Models
 {
@@ -11,14 +11,13 @@ namespace Domain.Models
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public bool IsActive { get; set; }
-
-        // እነዚህን properties ጨምረናል
-        public string ApiKey { get; set; } = string.Empty; // Client App የሚጠቀመው ሚስጥራዊ ቁልፍ
+        public string ApiKey { get; set; } = string.Empty;
         public string VapidPublicKey { get; set; } = string.Empty;
         public string VapidPrivateKey { get; set; } = string.Empty;
 
-        // Navigation properties
-        // EmailRecipients የሚለውን ስም በብዙ ቁጥር አድርገነዋል ምክንያቱም ብዙ ሊሆኑ ስለሚችሉ
+        // አዲሱ የClient Application Logo URL ንብረት እዚህ ጋር
+        public string? LogoUrl { get; set; } // የClient Application Logo URL (አማራጭ ሊሆን ይችላል)
+
         public List<EmailRecipient> EmailRecipients { get; set; } = new List<EmailRecipient>();
         public List<Notification> Notifications { get; set; } = new List<Notification>();
     }

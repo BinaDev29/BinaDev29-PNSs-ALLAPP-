@@ -10,7 +10,7 @@ namespace Application.Dto.Notifications
         public string Message { get; set; } = string.Empty;
         public DateTime SentDate { get; set; }
         public bool IsRead { get; set; }
-        public Guid? EmailRecipientId { get; set; }
+        public Guid? EmailRecipientId { get; set; } // Nullable to handle notifications without a specific single recipient
         public string NotificationType { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
     }

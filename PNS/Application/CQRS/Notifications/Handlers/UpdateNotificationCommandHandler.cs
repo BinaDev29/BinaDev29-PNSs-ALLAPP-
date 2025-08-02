@@ -1,13 +1,15 @@
-﻿using AutoMapper;
+﻿// File Path: Application/CQRS/Notifications/Handlers/UpdateNotificationCommandHandler.cs
+using AutoMapper;
 using MediatR;
 using Application.Contracts.IRepository;
 using Domain.Models;
 using Application.Dto.Notifications;
 using Application.CQRS.Notifications.Commands;
-using Application.Exceptions; // For NotFoundException
+using Application.Exceptions; // For NotFoundException, ValidationException
 using System.Threading;
 using System.Threading.Tasks;
 using Domain.Enums; // For NotificationStatus
+using System.Linq; // For .Any()
 
 namespace Application.CQRS.Notifications.Handlers
 {
@@ -35,18 +37,62 @@ namespace Application.CQRS.Notifications.Handlers
                 }
             }
 
-            // Validate EmailRecipientId if changed or newly provided
-            if (request.NotificationDto.EmailRecipientId.HasValue &&
-                (notificationToUpdate.EmailRecipientId != request.NotificationDto.EmailRecipientId || !notificationToUpdate.EmailRecipientId.HasValue))
+            // DTO ን ወደ update የሚደረገው Notification ሞዴል map አድርግ
+            // Recipient IDs በ NotificationRecipients collection በኩል ስለሚስተናገዱ እዚህ አያስፈልጉም
+            mapper.Map(request.NotificationDto, notificationToUpdate);
+
+            // አሁን RecipientIds ን እንዴት እንደምናዘምን እንወስናለን።
+            // ይህ እንደ ፍላጎትህ ውስብስብ ሊሆን ይችላል (ለምሳሌ ያሉትን ማጥፋት እና አዳዲሶችን መጨመር)
+            // ለጊዜው፣ አዲስ RecipientIds ከተሰጠ ያሉትን እንተካለን።
+            if (request.NotificationDto.RecipientIds != null && request.NotificationDto.RecipientIds.Any())
             {
-                var recipientExists = await emailRecipientRepository.Exists(request.NotificationDto.EmailRecipientId.Value);
-                if (!recipientExists)
+                // አሁን ያሉትን NotificationRecipients አስወግድ
+                notificationToUpdate.NotificationRecipients.Clear();
+
+                foreach (var recipientId in request.NotificationDto.RecipientIds)
                 {
-                    throw new NotFoundException(nameof(EmailRecipient), request.NotificationDto.EmailRecipientId.Value);
+                    var recipientExists = await emailRecipientRepository.Exists(recipientId);
+                    if (!recipientExists)
+                    {
+                        throw new NotFoundException(nameof(EmailRecipient), recipientId);
+                    }
+
+                    // አዲስ NotificationRecipient ፍጠር
+                    notificationToUpdate.NotificationRecipients.Add(new NotificationRecipient
+                    {
+                        NotificationId = notificationToUpdate.Id,
+                        EmailRecipientId = recipientId,
+                        Status = NotificationStatus.Pending, // Default status
+                        CreatedDate = DateTime.UtcNow
+                    });
                 }
             }
+            // ለኋላ ተኳሃኝነት (backward compatibility) ወይም ለነጠላ notification EmailRecipientId ከተሰጠ
+            else if (request.NotificationDto.EmailRecipientId.HasValue && request.NotificationDto.EmailRecipientId.Value != Guid.Empty)
+            {
+                // አሁን ያሉትን NotificationRecipients አስወግድ
+                notificationToUpdate.NotificationRecipients.Clear();
 
-            mapper.Map(request.NotificationDto, notificationToUpdate);
+                var singleRecipientId = request.NotificationDto.EmailRecipientId.Value;
+                var recipientExists = await emailRecipientRepository.Exists(singleRecipientId);
+                if (!recipientExists)
+                {
+                    throw new NotFoundException(nameof(EmailRecipient), singleRecipientId);
+                }
+
+                notificationToUpdate.NotificationRecipients.Add(new NotificationRecipient
+                {
+                    NotificationId = notificationToUpdate.Id,
+                    EmailRecipientId = singleRecipientId,
+                    Status = NotificationStatus.Pending,
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
+
+
+            // LastModifiedDate ን አዘምን
+            notificationToUpdate.LastModifiedDate = DateTime.UtcNow;
+
             await notificationRepository.Update(notificationToUpdate);
             return Unit.Value;
         }

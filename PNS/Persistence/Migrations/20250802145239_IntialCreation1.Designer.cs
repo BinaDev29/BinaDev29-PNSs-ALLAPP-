@@ -12,8 +12,8 @@ using Persistence;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(PnsDbContext))]
-    [Migration("20250730194452_InitialDatabaseSetup")]
-    partial class InitialDatabaseSetup
+    [Migration("20250802145239_IntialCreation1")]
+    partial class IntialCreation1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -52,6 +52,9 @@ namespace Persistence.Migrations
 
                     b.Property<DateTime?>("LastModifiedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("LogoUrl")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -135,11 +138,8 @@ namespace Persistence.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("EmailRecipientId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LastModifiedBy")
                         .HasColumnType("nvarchar(max)");
@@ -151,11 +151,10 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("NotificationType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime>("ScheduledTime")
+                        .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("SentDate")
+                    b.Property<DateTime?>("SentDate")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
@@ -165,13 +164,41 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClientApplicationId");
 
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Domain.Models.NotificationRecipient", b =>
+                {
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EmailRecipientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("SentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("NotificationId", "EmailRecipientId");
+
                     b.HasIndex("EmailRecipientId");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("NotificationRecipients");
                 });
 
             modelBuilder.Entity("Domain.Models.EmailRecipient", b =>
@@ -187,19 +214,30 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Models.Notification", b =>
                 {
-                    b.HasOne("Domain.Models.ClientApplication", "ClientApplication")
+                    b.HasOne("Domain.Models.ClientApplication", null)
                         .WithMany("Notifications")
                         .HasForeignKey("ClientApplicationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
 
+            modelBuilder.Entity("Domain.Models.NotificationRecipient", b =>
+                {
                     b.HasOne("Domain.Models.EmailRecipient", "EmailRecipient")
-                        .WithMany()
-                        .HasForeignKey("EmailRecipientId");
+                        .WithMany("NotificationRecipients")
+                        .HasForeignKey("EmailRecipientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.Navigation("ClientApplication");
+                    b.HasOne("Domain.Models.Notification", "Notification")
+                        .WithMany("NotificationRecipients")
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("EmailRecipient");
+
+                    b.Navigation("Notification");
                 });
 
             modelBuilder.Entity("Domain.Models.ClientApplication", b =>
@@ -207,6 +245,16 @@ namespace Persistence.Migrations
                     b.Navigation("EmailRecipients");
 
                     b.Navigation("Notifications");
+                });
+
+            modelBuilder.Entity("Domain.Models.EmailRecipient", b =>
+                {
+                    b.Navigation("NotificationRecipients");
+                });
+
+            modelBuilder.Entity("Domain.Models.Notification", b =>
+                {
+                    b.Navigation("NotificationRecipients");
                 });
 #pragma warning restore 612, 618
         }
