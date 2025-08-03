@@ -6,7 +6,7 @@ namespace Domain.Enums
         Pending,
         Sent,
         Failed,
-        Processing, // <-- ይህንን ጨምር
-        PartiallySent // <-- ይህንን ጨምር
+        Processing, 
+        PartiallySent 
     }
 }

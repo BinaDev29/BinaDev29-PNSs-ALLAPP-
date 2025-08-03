@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using Microsoft.AspNetCore.Mvc.Versioning; // ለ ApiVersion class
-// ለ ApiVersion 
 namespace API.Controllers
 {
     [ApiController]
