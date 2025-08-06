@@ -11,7 +11,7 @@ using AutoMapper;
 using System.Reflection;
 using MediatR;
 using Application.CQRS.Notifications.Handlers;
-using Application.Interfaces; // <<<< ይህንን ጨምር! >>>>
+using Application.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,18 +26,15 @@ builder.Services.AddPersistenceServices(builder.Configuration);
 // ********************************************************************************
 // PnsDbContext ን መመዝገብ
 // ********************************************************************************
-// PnsDbContext ሲጠየቅ IApplicationDbContext ን እንዲሰጥ መመዝገብ <<<< ይህንን ክፍል ጨምር >>>>
+// PnsDbContext ሲጠየቅ IApplicationDbContext ን እንዲሰጥ መመዝገብ
 builder.Services.AddScoped<IApplicationDbContext, PnsDbContext>();
 // ********************************************************************************
 
 builder.Services.AddControllers();
 
 // ********************************************************************************
-// MediatR Configuration - ይህንን ክፍል አክዬበታለሁ!
+// MediatR Configuration
 // ********************************************************************************
-// MediatR ን ይመዘግባል እና handlers ያሉበትን assembly እንዲያገኝ ያግዘዋል።
-// CreateNotificationCommandHandler ያለው በ "Application" project ውስጥ ስለሆነ፣
-// የዚያን project's assembly እንሰጠዋለን።
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(CreateNotificationCommandHandler).Assembly));
 // ********************************************************************************
 
@@ -79,14 +76,17 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityRequirement(requirement);
 });
 
-// Add CORS policy
+// ********************************************************************************
+// CORS Policy ን አስተካክል!
+// ********************************************************************************
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        corsBuilder => corsBuilder.AllowAnyOrigin()
+    options.AddPolicy("AllowFrontendOrigin", // Policy name ን ቀይረነዋል
+        corsBuilder => corsBuilder.WithOrigins("http://localhost:5173") // የእርስዎ Frontend URL
                                   .AllowAnyMethod()
                                   .AllowAnyHeader());
 });
+// ********************************************************************************
 
 // --- Build the Application ---
 var app = builder.Build();
@@ -109,7 +109,11 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
-app.UseCors("AllowAll");
+// ********************************************************************************
+// አዲሱን CORS Policy name ተጠቀም!
+// ********************************************************************************
+app.UseCors("AllowFrontendOrigin");
+// ********************************************************************************
 
 app.UseMiddleware<ApiKeyMiddleware>();
 

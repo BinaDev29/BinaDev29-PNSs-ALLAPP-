@@ -12,8 +12,8 @@ using Persistence;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(PnsDbContext))]
-    [Migration("20250802200257_IntialCreations")]
-    partial class IntialCreations
+    [Migration("20250805163339_IntialCreation")]
+    partial class IntialCreation
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -151,7 +151,7 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("ScheduledTime")
+                    b.Property<DateTime?>("ScheduledTime")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("SentDate")

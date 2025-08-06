@@ -148,7 +148,7 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("ScheduledTime")
+                    b.Property<DateTime?>("ScheduledTime")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("SentDate")
